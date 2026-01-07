@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pengumuman Hasil Tes SMK An Nurmaniyah</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Tambahan library untuk ekspor PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #f0f4f8; }
+        .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2); }
+        .fade-in { animation: fadeIn 0.5s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Pengaturan khusus saat konversi PDF atau Print */
+        @media print { 
+            .no-print { display: none !important; } 
+            body { background: white; padding: 0; } 
+            .glass-card { border: none; box-shadow: none; width: 100%; }
+            .print-container { padding: 0 !important; margin: 0 !important; width: 100% !important; }
+        }
+
+        /* Styling untuk PDF agar font terbaca dengan baik */
+        .pdf-content { background: white !important; padding: 20px; }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <div id="app" class="w-full max-w-4xl">
+        
+        <!-- HALAMAN LOGIN -->
+        <div id="loginPage" class="glass-card rounded-2xl shadow-xl p-8 md:p-12 max-w-md mx-auto fade-in">
+            <div class="text-center mb-8">
+                <div class="bg-blue-600 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
+                    </svg>
+                </div>
+                <h1 class="text-2xl font-bold text-gray-800">SMK An Nurmaniyah</h1>
+                <p class="text-gray-500 mt-2">Cek Hasil Tes Kemampuan Akademik</p>
+            </div>
+
+            <form id="loginForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nama Lengkap</label>
+                    <input type="text" id="inputName" required placeholder="Masukkan Nama Sesuai Ijazah"
+                        class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition uppercase">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">NISN</label>
+                    <input type="text" id="inputNisn" required placeholder="Masukkan NISN"
+                        class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition">
+                </div>
+                <button type="submit" 
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition duration-300 shadow-md">
+                    Lihat Hasil
+                </button>
+            </form>
+            <p id="errorMsg" class="text-red-500 text-sm mt-4 text-center hidden font-medium">Data tidak ditemukan. Pastikan sudah unggah Excel di Pengaturan.</p>
+            
+            <div class="mt-8 pt-6 border-t border-gray-100 text-center">
+                <button onclick="toggleAdmin()" class="text-xs text-gray-400 hover:text-blue-500 transition uppercase tracking-widest font-bold">
+                    [ Pengaturan Database ]
+                </button>
+            </div>
+        </div>
+
+        <!-- PANEL ADMIN -->
+        <div id="adminPanel" class="hidden glass-card rounded-2xl shadow-xl p-8 max-w-md mx-auto fade-in mb-8 border-2 border-dashed border-blue-300">
+            <h3 class="text-lg font-bold text-blue-800 mb-2">Unggah Data Excel</h3>
+            <div class="mb-4">
+                <button onclick="downloadTemplate()" class="text-xs bg-blue-50 text-blue-600 px-3 py-1 rounded-full border border-blue-200 hover:bg-blue-100 transition font-bold mb-4">
+                    ⬇️ Download Template Excel Baru
+                </button>
+            </div>
+            <input type="file" id="excelUpload" accept=".xlsx, .xls" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" />
+            <div id="uploadStatus" class="mt-3 text-sm font-medium"></div>
+            <div class="mt-6 flex justify-between items-center">
+                <button onclick="toggleAdmin()" class="text-sm text-gray-500 hover:underline">Tutup</button>
+                <button onclick="clearDatabase()" class="text-xs text-red-400 hover:text-red-600 uppercase font-bold">Hapus Semua Data</button>
+            </div>
+        </div>
+
+        <!-- HALAMAN HASIL (Area yang akan di-PDF kan) -->
+        <div id="resultPage" class="hidden fade-in">
+            <div class="flex justify-between items-center mb-6 no-print">
+                <div class="flex items-center gap-3">
+                    <div class="bg-blue-600 p-2 rounded-lg">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-800">Hasil Seleksi</h2>
+                        <p class="text-sm text-blue-600 font-medium italic">SMK An Nurmaniyah Online System</p>
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="downloadAsPDF()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl font-bold shadow-sm transition flex items-center gap-2 text-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                        UNDUH PDF
+                    </button>
+                    <button onclick="logout()" class="text-gray-500 hover:text-red-600 font-bold text-sm flex items-center bg-white px-4 py-2 rounded-xl shadow-sm border transition">
+                        KEMBALI
+                    </button>
+                </div>
+            </div>
+
+            <!-- Bagian ini yang akan masuk ke PDF -->
+            <div id="printableArea" class="print-container">
+                <!-- BIODATA SISWA -->
+                <div class="glass-card rounded-2xl shadow-lg mb-6 overflow-hidden print-border bg-white">
+                    <div class="bg-blue-600 px-6 py-3 no-print">
+                        <h3 class="text-white text-xs font-bold uppercase tracking-widest">Informasi Peserta</h3>
+                    </div>
+                    <!-- Header khusus PDF (Hanya muncul di PDF/Print) -->
+                    <div class="hidden print:block p-6 border-b-2 border-blue-600 text-center mb-4">
+                        <h1 class="text-2xl font-bold text-gray-800">SMK AN NURMANIYAH</h1>
+                        <p class="text-sm text-gray-600 italic">Bukti Hasil Tes Kemampuan Akademik</p>
+                    </div>
+                    <div class="p-6 md:p-8">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+                            <div class="space-y-4">
+                                <div class="flex items-start">
+                                    <div class="w-24 md:w-32 flex-shrink-0 text-gray-500 text-[10px] font-black uppercase tracking-tighter pt-1">Nama Lengkap</div>
+                                    <div class="flex-grow text-gray-900 font-bold border-b border-gray-100 pb-1 uppercase" id="resName">-</div>
+                                </div>
+                                <div class="flex items-start">
+                                    <div class="w-24 md:w-32 flex-shrink-0 text-gray-500 text-[10px] font-black uppercase tracking-tighter pt-1">NISN</div>
+                                    <div class="flex-grow text-gray-900 font-medium border-b border-gray-100 pb-1" id="resNisn">-</div>
+                                </div>
+                                <div class="flex items-start">
+                                    <div class="w-24 md:w-32 flex-shrink-0 text-gray-500 text-[10px] font-black uppercase tracking-tighter pt-1">No. Peserta</div>
+                                    <div class="flex-grow text-blue-700 font-mono font-bold border-b border-gray-100 pb-1 uppercase" id="resNo">-</div>
+                                </div>
+                            </div>
+                            <div class="space-y-4">
+                                <div class="flex items-start">
+                                    <div class="w-24 md:w-32 flex-shrink-0 text-gray-500 text-[10px] font-black uppercase tracking-tighter pt-1">Kelas</div>
+                                    <div class="flex-grow text-gray-900 font-semibold border-b border-gray-100 pb-1 uppercase" id="resKelas">-</div>
+                                </div>
+                                <div class="flex items-start">
+                                    <div class="w-24 md:w-32 flex-shrink-0 text-gray-500 text-[10px] font-black uppercase tracking-tighter pt-1">Tempat/Tgl Lahir</div>
+                                    <div class="flex-grow text-gray-900 font-medium border-b border-gray-100 pb-1 uppercase" id="resTtl">-</div>
+                                </div>
+                                <div class="flex items-start">
+                                    <div class="w-24 md:w-32 flex-shrink-0 text-gray-500 text-[10px] font-black uppercase tracking-tighter pt-1">Status</div>
+                                    <div class="flex-grow">
+                                        <span class="inline-block bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded font-black border border-green-200 uppercase">LULUS SELEKSI</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TABEL NILAI -->
+                <div class="glass-card rounded-2xl shadow-lg overflow-hidden bg-white">
+                    <table class="w-full text-left">
+                        <thead class="bg-gray-50 border-b border-gray-200">
+                            <tr>
+                                <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest w-1/2">Mata Pelajaran</th>
+                                <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Nilai</th>
+                                <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Predikat</th>
+                            </tr>
+                        </thead>
+                        <tbody id="scoreTableBody"></tbody>
+                    </table>
+                    
+                    <!-- Footer Info (Tanpa Rata-rata) -->
+                    <div class="p-6 bg-gray-50 border-t border-gray-100 text-center">
+                        <p class="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Hasil ini bersifat sah dan dikeluarkan secara sistem oleh SMK An Nurmaniyah.</p>
+                        <p class="text-[9px] text-gray-300 mt-1 italic">Waktu Cetak: <span id="printDate"></span></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let studentDatabase = JSON.parse(localStorage.getItem('smk_db')) || [];
+
+        function toggleAdmin() { document.getElementById('adminPanel').classList.toggle('hidden'); }
+
+        function clearDatabase() {
+            if(confirm("Hapus semua data?")) {
+                studentDatabase = [];
+                localStorage.removeItem('smk_db');
+                location.reload();
+            }
+        }
+
+        function downloadTemplate() {
+            const header = [
+                ["Nama", "NISN", "No Peserta", "Kelas", "TTL", 
+                 "Bahasa Indonesia", "B Indo Predikat", 
+                 "Matematika", "MTK Predikat", 
+                 "Bahasa Inggris", "B Inggris Predikat", 
+                 "Projek Kreatif dan Kewirausahaan", "PKK Predikat", 
+                 "Mata Pelajaran Pilihan (Nama)", "Nilai Pilihan", "Predikat Pilihan"]
+            ];
+            const sample = [
+                ["BUDI SANTOSO", "1234567890", "2024-AN-001", "X TKJ 1", "TANGERANG, 12 MEI 2008", 
+                 85, "Sangat Baik", 
+                 90, "Istimewa", 
+                 80, "Baik", 
+                 95, "Sangat Baik", 
+                 "Animasi 2D", 88, "Sangat Kompeten"]
+            ];
+            const ws = XLSX.utils.aoa_to_sheet(header.concat(sample));
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "DatabaseSiswa");
+            XLSX.writeFile(wb, "Template_Data_SMK_AnNurmaniyah_V2.xlsx");
+        }
+
+        const excelUpload = document.getElementById('excelUpload');
+        excelUpload.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                try {
+                    const data = new Uint8Array(evt.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const json = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+
+                    const findKey = (row, keywords) => {
+                        return Object.keys(row).find(k => keywords.some(kw => k.toLowerCase().replace(/\s/g, '').includes(kw.toLowerCase().replace(/\s/g, ''))));
+                    };
+
+                    studentDatabase = json.filter(row => findKey(row, ["Nama"]) && findKey(row, ["NISN"])).map(row => {
+                        const getValPred = (valKeys, predKeys) => {
+                            const vKey = findKey(row, valKeys);
+                            const pKey = findKey(row, predKeys);
+                            return {
+                                score: parseFloat(row[vKey]) || 0,
+                                pred: String(row[pKey] || "").trim()
+                            };
+                        };
+
+                        const mapelWajib = {
+                            "Bahasa Indonesia": getValPred(["Indonesia", "B Indo"], ["B Indo Predikat", "Predikat Indonesia"]),
+                            "Matematika": getValPred(["Matematika", "MTK"], ["MTK Predikat", "Predikat MTK"]),
+                            "Bahasa Inggris": getValPred(["Inggris", "B Inggris"], ["B Inggris Predikat", "Predikat Inggris"])
+                        };
+
+                        const mapelPKK = {
+                            "Projek Kreatif dan Kewirausahaan": getValPred(["Projek", "PKK"], ["PKK Predikat", "Predikat PKK"])
+                        };
+
+                        const choiceNameKey = findKey(row, ["Pilihan (Nama)", "Nama Mapel Pilihan"]);
+                        const choiceScoreKey = findKey(row, ["Nilai Pilihan"]);
+                        const choicePredKey = findKey(row, ["Predikat Pilihan"]);
+
+                        let mapelPilihan2 = {};
+                        if (choiceNameKey && row[choiceNameKey]) {
+                            mapelPilihan2[row[choiceNameKey]] = {
+                                score: parseFloat(row[choiceScoreKey]) || 0,
+                                pred: String(row[choicePredKey] || "").trim()
+                            };
+                        }
+
+                        return {
+                            nama: String(row[findKey(row, ["Nama"])]).trim(),
+                            nisn: String(row[findKey(row, ["NISN"])]).trim(),
+                            noPeserta: String(row[findKey(row, ["No Peserta", "Nomor"])]).trim(),
+                            kelas: String(row[findKey(row, ["Kelas"])]).trim(),
+                            ttl: String(row[findKey(row, ["TTL", "Lahir"])]).trim(),
+                            nilaiWajib: mapelWajib,
+                            nilaiPilihan: { ...mapelPKK, ...mapelPilihan2 }
+                        };
+                    });
+
+                    localStorage.setItem('smk_db', JSON.stringify(studentDatabase));
+                    document.getElementById('uploadStatus').textContent = `✅ ${studentDatabase.length} data tersimpan.`;
+                } catch (err) { alert("Error membaca file."); }
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        document.getElementById('loginForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const nameIn = document.getElementById('inputName').value.trim().toLowerCase();
+            const nisnIn = document.getElementById('inputNisn').value.trim();
+            const student = studentDatabase.find(s => (s.nama.toLowerCase() === nameIn || s.nama.toLowerCase().includes(nameIn)) && s.nisn === nisnIn);
+            if (student) { showResult(student); } 
+            else { document.getElementById('errorMsg').classList.remove('hidden'); setTimeout(() => document.getElementById('errorMsg').classList.add('hidden'), 4000); }
+        });
+
+        function createRow(mapel, dataNilai) {
+            return `
+                <tr class="border-b transition hover:bg-gray-50/50">
+                    <td class="px-6 py-4 font-medium text-gray-700">${mapel}</td>
+                    <td class="px-6 py-4 text-center font-bold text-gray-900">${dataNilai.score}</td>
+                    <td class="px-6 py-4 text-center font-bold text-blue-600">${dataNilai.pred || "-"}</td>
+                </tr>`;
+        }
+
+        function showResult(data) {
+            document.getElementById('resName').textContent = data.nama.toUpperCase();
+            document.getElementById('resNisn').textContent = data.nisn;
+            document.getElementById('resNo').textContent = data.noPeserta.toUpperCase();
+            document.getElementById('resKelas').textContent = data.kelas.toUpperCase();
+            document.getElementById('resTtl').textContent = data.ttl.toUpperCase();
+            document.getElementById('printDate').textContent = new Date().toLocaleString('id-ID');
+
+            const tbody = document.getElementById('scoreTableBody');
+            tbody.innerHTML = '';
+
+            // Wajib
+            tbody.innerHTML += `<tr class="bg-gray-100/50"><td colspan="3" class="px-6 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Mata Pelajaran Wajib</td></tr>`;
+            Object.entries(data.nilaiWajib).forEach(([m, d]) => {
+                tbody.innerHTML += createRow(m, d);
+            });
+
+            // Pilihan
+            tbody.innerHTML += `<tr class="bg-gray-100/50"><td colspan="3" class="px-6 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Mata Pelajaran Pilihan</td></tr>`;
+            Object.entries(data.nilaiPilihan).forEach(([m, d]) => {
+                tbody.innerHTML += createRow(m, d);
+            });
+
+            document.getElementById('loginPage').classList.add('hidden');
+            document.getElementById('resultPage').classList.remove('hidden');
+            window.scrollTo(0, 0);
+        }
+
+        async function downloadAsPDF() {
+            const element = document.getElementById('printableArea');
+            const studentName = document.getElementById('resName').textContent;
+            
+            // Konfigurasi html2pdf
+            const opt = {
+                margin:       10,
+                filename:     `Hasil_Seleksi_${studentName}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            try {
+                // Tambahkan class sementara untuk styling PDF
+                element.classList.add('pdf-content');
+                await html2pdf().set(opt).from(element).save();
+                element.classList.remove('pdf-content');
+            } catch (error) {
+                console.error('PDF Error:', error);
+                alert('Gagal mengunduh PDF. Silakan coba gunakan fitur Print browser.');
+            }
+        }
+
+        function logout() { 
+            document.getElementById('resultPage').classList.add('hidden'); 
+            document.getElementById('loginPage').classList.remove('hidden'); 
+        }
+    </script>
+</body>
+</html>
